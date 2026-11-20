@@ -3,6 +3,12 @@
 Module DevOps, Pr. Imane CHLIOUI
 Environnement : Windows 11, Docker Desktop 29.6.1 (moteur linux/amd64), 20 CPU, 7,6 GiB de RAM alloués à Docker.
 
+Contenu du dépôt :
+- ce compte rendu, avec une capture pour chaque exercice ([`captures/`](captures/)) ;
+- [`commandes.sh`](commandes.sh) : toutes les commandes du TP, exercice par exercice ;
+- [`nginx-perso/`](nginx-perso/) : l'image de l'exercice 17 reconstruite proprement avec un Dockerfile ;
+- [`Compte_rendu_TP_Docker_DockerHub.pdf`](Compte_rendu_TP_Docker_DockerHub.pdf) : la version PDF rendue.
+
 ---
 
 ## Partie 1 : premiers pas
@@ -17,6 +23,9 @@ $ docker info
 Containers=6 Running=2 Images=25 Storage=overlayfs OS=Docker Desktop CPUs=20 Mem=7.6GiB
 ```
 
+![docker version](captures/ex01_version.png)
+![docker info](captures/ex01_info.png)
+
 Les deux parties répondent, **Client** et **Server**, donc le démon `dockerd` est bien démarré. Le client (la commande `docker`) ne fait qu'envoyer des requêtes à l'API du démon, et c'est le démon qui gère images, conteneurs, volumes et réseaux. Sous Windows, le démon tourne dans une petite VM Linux gérée par Docker Desktop. C'est pourquoi le serveur annonce `linux/amd64`.
 
 ### Exercice 2 : le premier conteneur
@@ -29,6 +38,8 @@ latest: Pulling from library/hello-world
 Hello from Docker!
 This message shows that your installation appears to be working correctly.
 ```
+
+![docker run hello-world](captures/ex02_hello.png)
 
 Les 4 étapes décrites par le message :
 1. le **client** contacte le **démon** ;
@@ -59,6 +70,10 @@ nginx:latest     84f7876d21d1   243MB
 nginx:alpine     713fc2ebfd92   94.5MB
 ```
 
+![docker search nginx](captures/ex03_search.png)
+![docker pull](captures/ex03_pull.png)
+![docker images](captures/ex03_images.png)
+
 - Seule `nginx` porte la mention **OFFICIAL**. Les autres appartiennent au compte `nginx/…`, c'est-à-dire à l'éditeur.
 - La variante `alpine` est environ **2,5 fois plus légère** (94,5 MB contre 243 MB), car elle est basée sur Alpine Linux et non sur Debian.
 - Les deux tags ont des **IMAGE ID différents** : ce sont deux images distinctes, pas deux noms pour la même image.
@@ -74,6 +89,8 @@ Entrypoint   = ["/docker-entrypoint.sh"]
 ExposedPorts = {"80/tcp":{}}
 Env          = ["PATH=/usr/local/sbin:...", "NGINX_VERSION=1.31.8", "NJS_VERSION=1.0.2", ...]
 ```
+
+![docker image inspect](captures/ex04_inspect.png)
 
 - `Cmd` + `Entrypoint` : le conteneur exécute `/docker-entrypoint.sh nginx -g "daemon off;"`. `daemon off;` garde nginx au premier plan, sinon le conteneur s'arrêterait aussitôt.
 - `ExposedPorts` : nginx écoute sur le port 80. C'est de la documentation : le port n'est pas publié automatiquement.
@@ -92,6 +109,8 @@ SIZE      CREATED BY
 ...
 ```
 
+![docker history](captures/ex04_history.png)
+
 Chaque ligne est une couche et correspond à une instruction du Dockerfile. Les instructions de métadonnées (`CMD`, `EXPOSE`, `ENV`…) pèsent **0 B**. Seules celles qui modifient le système de fichiers (`RUN`, `COPY`) ont une taille.
 
 Suppression de l'image inutile :
@@ -101,6 +120,8 @@ Deleted: sha256:84f7876d21d1...
 $ docker images nginx
 nginx:alpine
 ```
+
+![docker rmi](captures/ex04_rmi.png)
 
 ---
 
@@ -124,6 +145,8 @@ ubuntu
 root@096e25372c7f:/# exit
 ```
 
+![conteneur ubuntu interactif](captures/ex05_ubuntu.png)
+
 Observations :
 - On est bien sur **Ubuntu 24.04**, alors que la machine hôte est sous Windows. Le conteneur apporte son propre système de fichiers, mais il partage le noyau Linux de la VM Docker.
 - `ps aux` ne montre que **2 processus** : `bash`, en **PID 1**, et `ps`. Le conteneur est isolé dans son propre espace de processus (namespace PID) et ne voit aucun processus de l'hôte.
@@ -145,6 +168,9 @@ CONTAINER ID   IMAGE          PORTS                                     NAMES
 62f950ebe7f6   nginx:alpine   0.0.0.0:8080->80/tcp, [::]:8080->80/tcp   web
 ```
 
+![docker run -d](captures/ex06_run.png)
+![Welcome to nginx sur localhost:8080](captures/ex06_browser.png)
+
 - `-d` (*detached*) : le conteneur tourne en arrière-plan et la commande rend la main en affichant l'ID.
 - `-p 8080:80` : le port **8080 de l'hôte** est redirigé vers le port **80 du conteneur**, toujours dans l'ordre `hôte:conteneur`. `0.0.0.0` signifie que le port est accessible sur toutes les interfaces de la machine. La page « Welcome to nginx! » s'affiche sur http://localhost:8080.
 
@@ -161,6 +187,9 @@ NAME   CPU %   MEM USAGE / LIMIT     NET I/O           PIDS
 web    0.00%   15.93MiB / 7.609GiB   2.89kB / 1.97kB   21
 ```
 
+![docker logs](captures/ex07_logs.png)
+![docker stats](captures/ex07_stats.png)
+
 - `docker logs` affiche ce que le processus principal écrit sur **stdout/stderr**. L'image nginx redirige ses fichiers `access.log` et `error.log` vers ces flux, d'où leur présence ici. Chaque rafraîchissement de la page ajoute une ligne. L'adresse `172.17.0.1` est la passerelle du réseau `bridge` : les requêtes arrivent de l'hôte à travers la redirection de port.
 - `-f` (*follow*) suit les nouveaux journaux en continu, comme `tail -f`.
 - `docker stats` montre que nginx au repos consomme environ **16 MiB** de RAM et 0 % de CPU. La limite affichée correspond à toute la mémoire de la VM Docker, faute de limite fixée avec `--memory`.
@@ -176,6 +205,9 @@ $ docker exec -it web sh
 $ curl http://localhost:8080
 <h1>Bonjour depuis mon conteneur</h1>
 ```
+
+![docker exec](captures/ex08_exec.png)
+![page modifiée](captures/ex08_browser.png)
 
 La page a changé immédiatement, sans redémarrer le conteneur.
 
@@ -198,6 +230,8 @@ stop the container before removing or force remove
 $ docker rm -f web2      -> web2
 ```
 
+![cycle de vie](captures/ex09_cycle.png)
+
 Cycle de vie : `created → running → exited → (start) running → removed`.
 - `stop` **arrête** le conteneur (SIGTERM, puis SIGKILL après 10 s) mais **ne le supprime pas** : il garde sa configuration et sa couche inscriptible, et `start` le relance tel quel.
 - `docker ps` n'affiche que les conteneurs en cours d'exécution, `docker ps -a` les affiche tous.
@@ -215,6 +249,8 @@ $ docker rm essai
 $ docker run --rm alpine cat /donnee.txt
 cat: can't open '/donnee.txt': No such file or directory
 ```
+
+![données éphémères](captures/ex10_ephemere.png)
 
 Le fichier a été écrit dans la couche inscriptible du conteneur `essai`, et cette couche a disparu avec `docker rm`. Le nouveau conteneur repart de l'image `alpine` d'origine, qui ne contient pas le fichier. Un conteneur est donc **jetable** : toute donnée à conserver doit être stockée **hors du conteneur**.
 
@@ -235,6 +271,8 @@ $ docker volume inspect donnees
    "Mountpoint": "/var/lib/docker/volumes/donnees/_data",
    "Name": "donnees", "Scope": "local" }]
 ```
+
+![volume nommé](captures/ex11_volume.png)
 
 - Le premier conteneur a été supprimé (`--rm`), mais le fichier a **survécu** et un **autre** conteneur l'a relu. Le volume a une vie **indépendante** des conteneurs.
 - `Mountpoint` indique où Docker stocke les données. Sous Docker Desktop, ce chemin se trouve dans la VM Linux et n'est pas directement visible depuis l'Explorateur Windows.
@@ -278,13 +316,18 @@ The push refers to repository [docker.io/<IDENTIFIANT>/nginx-perso]
 1.0: digest: sha256:... size: ...
 ```
 
+![docker commit et push](captures/ex17_commit.png)
+
 Vérification locale avant le push : un conteneur lancé depuis la nouvelle image (`-p 8082:80`) affiche bien `<h1>Bonjour depuis mon conteneur</h1>`. La modification de l'exercice 8 fait désormais partie d'une image.
+
+![test de la nouvelle image](captures/ex17_test.png)
+![page sur localhost:8082](captures/ex17_browser.png)
 
 Remarques :
 - `docker commit` ajoute **une seule couche** (90 kB) contenant les différences du conteneur par rapport à son image. Les couches de `nginx:alpine` sont réutilisées. Au push, Docker Hub les possède déjà (« Mounted from library/nginx »), donc seule la nouvelle couche est envoyée.
 - `docker tag` **n'effectue aucune copie** : il ajoute simplement un nom qui pointe vers le même IMAGE ID.
 - Le préfixe doit être **exactement** l'identifiant Docker Hub, sinon on obtient `denied: requested access to the resource is denied`.
-- `docker commit` est pratique pour une démonstration, mais c'est une **mauvaise pratique** en production : l'image n'est pas reproductible, car on ne sait pas comment elle a été obtenue. Il faut lui préférer un **Dockerfile** (`FROM nginx:alpine` + `COPY index.html /usr/share/nginx/html/`), versionné dans Git.
+- `docker commit` est pratique pour une démonstration, mais c'est une **mauvaise pratique** en production : l'image n'est pas reproductible, car on ne sait pas comment elle a été obtenue. Il faut lui préférer un **Dockerfile** (`FROM nginx:alpine` + `COPY index.html /usr/share/nginx/html/`), versionné dans Git. C'est ce que contient le dossier [`nginx-perso/`](nginx-perso/) de ce dépôt.
 - L'énoncé contient deux coquilles. Il y a un espace en trop dans `etudiant-a/ nginx-perso`, ce qui rend le nom invalide. Et la ligne `docker tag monapp:1.1 …` concerne l'image `monapp` des exercices 12 à 15 et 18, qui ne figurent pas dans le sujet fourni.
 
 ### Exercice 19 : récupérer l'image d'un camarade
